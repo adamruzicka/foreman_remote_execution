@@ -44,7 +44,7 @@ class Targeting < ApplicationRecord
     self.validate!
     # avoid validation of hosts objects - they will be loaded for no reason.
     #   pluck(:id) returns duplicate results for HostCollections
-    host_ids = User.as(user.login) { Host.authorized(RESOLVE_PERMISSION, Host).search_for(search_query).order(:name, :id).pluck(:id).uniq }
+    host_ids = User.as(user.login) { Host.execution_scope.authorized(RESOLVE_PERMISSION, Host).search_for(search_query).order(:name, :id).pluck(:id).uniq }
     host_ids.shuffle!(random: Random.new) if randomized_ordering
     # this can be optimized even more, by introducing bulk insert
     self.targeting_hosts.build(host_ids.map { |id| { :host_id => id } })
@@ -62,7 +62,7 @@ class Targeting < ApplicationRecord
   def self.build_query_from_hosts(ids)
     return '' if ids.empty?
 
-    hosts = Host.where(:id => ids).distinct.pluck(:name)
+    hosts = Host.execution_scope.where(:id => ids).distinct.pluck(:name)
     "name ^ (#{hosts.join(', ')})"
   end
 
