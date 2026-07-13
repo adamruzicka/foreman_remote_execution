@@ -1,52 +1,57 @@
 import { translate as __, sprintf } from 'foremanReact/common/I18n';
-import { foremanUrl } from 'foremanReact/common/helpers';
 import { addToast } from 'foremanReact/components/ToastsList';
 import { APIActions, get } from 'foremanReact/redux/API';
-import {
-  stopInterval,
-  withInterval,
-} from 'foremanReact/redux/middlewares/IntervalMiddleware';
 import {
   CANCEL_JOB,
   CANCEL_RECURRING_LOGIC,
   CHANGE_ENABLED_RECURRING_LOGIC,
-  GET_TASK,
   JOB_INVOCATION_KEY,
-  UPDATE_JOB,
+  STATUS,
 } from './JobInvocationConstants';
 
-export const getJobInvocation = url => dispatch => {
-  const fetchData = withInterval(
+const FINISHED_STATUSES = [STATUS.FAILED, STATUS.SUCCEEDED, STATUS.CANCELLED];
+
+export const isJobFinished = statusLabel =>
+  FINISHED_STATUSES.includes(statusLabel);
+
+const extractErrorMessage = response =>
+  // eslint-disable-next-line camelcase
+  response?.data?.error?.full_messages?.[0] ||
+  response?.data?.error?.message ||
+  'Unknown error.';
+
+const fetchJobInvocation = (dispatch, url, params = {}, pollTimeoutRef = { current: null }) => {
+  dispatch(
     get({
       key: JOB_INVOCATION_KEY,
-      params: { include_permissions: true, include_hosts: false },
+      params: { include_hosts: false, include_permissions: true, ...params },
       url,
-      handleError: () => {
-        dispatch(stopInterval(JOB_INVOCATION_KEY));
+      handleSuccess: ({ data }) => {
+        if (!isJobFinished(data.status_label)) {
+          pollTimeoutRef.current = setTimeout(
+            () => fetchJobInvocation(dispatch, url, {}, pollTimeoutRef),
+            5000
+          );
+        } else {
+          pollTimeoutRef.current = null;
+        }
       },
-      errorToast: ({ response }) =>
-        // eslint-disable-next-line camelcase
-        response?.data?.error?.full_messages?.[0] ||
-        // eslint-disable-next-line camelcase
-        response?.data?.error?.full_messages ||
-        response?.data?.error?.message ||
-        'Error',
-    }),
-    1000
-  );
-
-  dispatch(fetchData);
-};
-
-export const updateJob = jobId => dispatch => {
-  const url = foremanUrl(`/api/job_invocations/${jobId}`);
-  dispatch(
-    APIActions.get({
-      url,
-      key: UPDATE_JOB,
-      params: { include_hosts: false },
+      handleError: () => {
+        pollTimeoutRef.current = null;
+      },
+      errorToast: ({ response }) => extractErrorMessage(response),
     })
   );
+};
+
+export const getJobInvocation = (url, pollTimeoutRef) => dispatch => {
+  stopJobInvocationPolling(pollTimeoutRef);
+  fetchJobInvocation(dispatch, url, { include_permissions: true }, pollTimeoutRef);
+};
+
+export const stopJobInvocationPolling = pollTimeoutRef => {
+  clearTimeout(pollTimeoutRef.current);
+  pollTimeoutRef.current = null;
 };
 
 export const cancelJob = (jobId, force) => dispatch => {
@@ -56,8 +61,8 @@ export const cancelJob = (jobId, force) => dispatch => {
       : sprintf(__('Trying to cancel the job %s.'), jobId);
   const errorToast = response =>
     force
-      ? sprintf(__(`Could not abort the job %s: ${response}`), jobId)
-      : sprintf(__(`Could not cancel the job %s: ${response}`), jobId);
+      ? sprintf(__('Could not abort the job %s: %s'), jobId, response)
+      : sprintf(__('Could not cancel the job %s: %s'), jobId, response);
   const url = force
     ? `/job_invocations/${jobId}/cancel?force=true`
     : `/job_invocations/${jobId}/cancel`;
@@ -66,13 +71,7 @@ export const cancelJob = (jobId, force) => dispatch => {
     APIActions.post({
       url,
       key: CANCEL_JOB,
-      errorToast: ({ response }) =>
-        errorToast(
-          // eslint-disable-next-line camelcase
-          response?.data?.error?.full_messages ||
-            response?.data?.error?.message ||
-            'Unknown error.'
-        ),
+      errorToast: ({ response }) => errorToast(extractErrorMessage(response)),
       handleSuccess: () => {
         dispatch(
           addToast({
@@ -81,17 +80,7 @@ export const cancelJob = (jobId, force) => dispatch => {
             message: infoToast(),
           })
         );
-        dispatch(updateJob(jobId));
       },
-    })
-  );
-};
-
-export const getTask = taskId => dispatch => {
-  dispatch(
-    get({
-      key: GET_TASK,
-      url: `/foreman_tasks/api/tasks/${taskId}`,
     })
   );
 };
@@ -122,19 +111,15 @@ export const enableRecurringLogic = (
       key: CHANGE_ENABLED_RECURRING_LOGIC,
       params: { recurring_logic: { enabled: !enabled } },
       successToast,
-      errorToast: ({ response }) =>
-        errorToast(
-          // eslint-disable-next-line camelcase
-          response?.data?.error?.full_messages ||
-            response?.data?.error?.message ||
-            'Unknown error.'
-        ),
-      handleSuccess: () => dispatch(updateJob(jobId)),
+      errorToast: ({ response }) => errorToast(extractErrorMessage(response)),
+      handleSuccess: () => {
+        fetchJobInvocation(dispatch, `/api/job_invocations/${jobId}`);
+      },
     })
   );
 };
 
-export const cancelRecurringLogic = (recurrenceId, jobId) => dispatch => {
+export const cancelRecurringLogic = recurrenceId => dispatch => {
   const successToast = () =>
     sprintf(__('Recurring logic %s cancelled successfully.'), recurrenceId);
   const errorToast = response =>
@@ -148,14 +133,7 @@ export const cancelRecurringLogic = (recurrenceId, jobId) => dispatch => {
       url,
       key: CANCEL_RECURRING_LOGIC,
       successToast,
-      errorToast: ({ response }) =>
-        errorToast(
-          // eslint-disable-next-line camelcase
-          response?.data?.error?.full_messages ||
-            response?.data?.error?.message ||
-            'Unknown error.'
-        ),
-      handleSuccess: () => dispatch(updateJob(jobId)),
+      errorToast: ({ response }) => errorToast(extractErrorMessage(response)),
     })
   );
 };
