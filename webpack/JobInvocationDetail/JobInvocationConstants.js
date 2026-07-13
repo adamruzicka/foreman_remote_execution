@@ -7,7 +7,6 @@ import JobStatusIcon from '../react_app/components/RecentJobsCard/JobStatusIcon'
 
 export const JOB_INVOCATION_KEY = 'JOB_INVOCATION_KEY';
 export const UPDATE_JOB = 'UPDATE_JOB';
-export const CURRENT_PERMISSIONS = 'CURRENT_PERMISSIONS';
 export const CANCEL_JOB = 'CANCEL_JOB';
 export const GET_TEMPLATE_INVOCATIONS = 'GET_TEMPLATE_INVOCATIONS';
 export const CHANGE_ENABLED_RECURRING_LOGIC = 'CHANGE_ENABLED_RECURRING_LOGIC';

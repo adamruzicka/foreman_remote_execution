@@ -17,7 +17,6 @@ import {
   selectAPIHttpStatus,
   selectAPIStatus,
 } from 'foremanReact/redux/API/APISelectors';
-import { useAPI } from 'foremanReact/common/hooks/API/APIHooks';
 
 import { JobAdditionInfo } from './JobAdditionInfo';
 import JobInvocationHostTable from './JobInvocationHostTable';
@@ -32,11 +31,9 @@ import {
 } from './JobInvocationActions';
 import './JobInvocationDetail.scss';
 import {
-  CURRENT_PERMISSIONS,
   DATE_OPTIONS,
   JOB_INVOCATION_KEY,
   STATUS_UPPERCASE,
-  currentPermissionsUrl,
 } from './JobInvocationConstants';
 import { selectItems } from './JobInvocationSelectors';
 
@@ -65,9 +62,6 @@ const JobInvocationDetailPage = ({
   const jobInvocationHttpStatus = useSelector(state =>
     selectAPIHttpStatus(state, JOB_INVOCATION_KEY)
   );
-  useAPI('get', currentPermissionsUrl, {
-    key: CURRENT_PERMISSIONS,
-  });
   const [selectedFilter, setSelectedFilter] = useState('');
 
   const handleFilterChange = newFilter => {
