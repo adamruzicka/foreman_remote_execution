@@ -67,6 +67,14 @@ module Api
           assert_nil result['template_invocations']
         end
 
+        test 'should include cancellable field in task node' do
+          get :show, params: { :id => @invocation.id }
+          assert_response :success
+          result = ActiveSupport::JSON.decode(@response.body)
+          assert result.key?('task'), 'task node should be present in show response'
+          assert result['task'].key?('cancellable'), 'cancellable field should be present in task node'
+        end
+
         test 'should include job_status per host when host_status=true' do
           invocation = FactoryBot.create(:job_invocation, :with_template, :with_task)
           invocation.template_invocations << FactoryBot.create(:template_invocation, :with_task, :with_host, :job_invocation => invocation)
