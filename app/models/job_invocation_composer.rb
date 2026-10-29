@@ -436,7 +436,7 @@ class JobInvocationComposer
     else
       return false unless save
     end
-    triggering.trigger(::Actions::RemoteExecution::RunHostsJob, job_invocation)
+    triggering.trigger(execution_action, job_invocation)
   end
 
   def trigger!
@@ -567,6 +567,13 @@ class JobInvocationComposer
   end
 
   private
+
+  def execution_action
+    providers = job_invocation.pattern_template_invocations.filter_map { |invocation| invocation.template&.provider }.uniq
+    return ::Actions::RemoteExecution::RunHostsJob unless providers.one?
+
+    providers.first.execution_action(job_invocation)
+  end
 
   # builds input values for a given templates id based on params
   # omits inputs that belongs to unavailable templates

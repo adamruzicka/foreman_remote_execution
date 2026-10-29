@@ -149,6 +149,10 @@ class RemoteExecutionProvider
       'Proxy::RemoteExecution::Ssh::Actions::RunScript'
     end
 
+    def execution_action(_job_invocation)
+      ::Actions::RemoteExecution::RunHostsJob
+    end
+
     def proxy_batch_size
       Setting['foreman_tasks_proxy_batch_size']
     end
